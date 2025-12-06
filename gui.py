@@ -1,11 +1,7 @@
-
-        
-            import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, scrolledtext
+import tkinter as tk
+from tkinter import ttk, messagebox
 import json
 import os
-import subprocess
-import platform
 
 class StudentRecordSystem:
     def __init__(self, root):
@@ -264,137 +260,9 @@ class StudentRecordSystem:
         else:
             self.students = []
     
-    def calculate_stats(self):
-        if not self.students:
-            messagebox.showwarning("Warning", "No students to analyze!")
-            return
-        
-        # Save data for C++ program
-        self.save_data()
-        
-        # Determine C++ executable name based on platform
-        if platform.system() == 'Windows':
-            cpp_exe = 'student_stats.exe'
-            compile_cmd = 'g++ -std=c++11 student_stats.cpp -o student_stats.exe'
-        else:
-            cpp_exe = './student_stats'
-            compile_cmd = 'g++ -std=c++11 student_stats.cpp -o student_stats'
-        
-        if not os.path.exists(cpp_exe.lstrip('./')):
-            response = messagebox.askyesno("C++ Program Not Found", 
-                f"C++ program not found!\n\n"
-                f"To compile, run this command in terminal:\n{compile_cmd}\n\n"
-                f"Would you like to see the compilation instructions?")
-            
-            if response:
-                self.show_compile_instructions(compile_cmd)
-            return
-        
-        try:
-            # Run the C++ program
-            result = subprocess.run([cpp_exe], 
-                                  capture_output=True, 
-                                  text=True, 
-                                  timeout=10,
-                                  cwd=os.getcwd())
-            
-            if result.returncode == 0:
-                # Show output in a new window
-                self.show_stats_window(result.stdout)
-                
-                # Check if report file was created
-                if os.path.exists('student_report.txt'):
-                    messagebox.showinfo("Success", 
-                        "Statistics calculated successfully!\n\n"
-                        "Detailed report saved to: student_report.txt")
-            else:
-                messagebox.showerror("Error", 
-                    f"C++ program returned an error:\n\n{result.stderr}")
-        
-        except subprocess.TimeoutExpired:
-            messagebox.showerror("Error", "C++ program took too long to execute (timeout).")
-        except FileNotFoundError:
-            messagebox.showerror("Error", 
-                f"C++ executable not found!\n\n"
-                f"Make sure '{cpp_exe}' exists in the current directory.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error running C++ program:\n\n{str(e)}")
-    
-    def show_stats_window(self, stats_text):
-        """Display statistics in a new window"""
-        stats_window = tk.Toplevel(self.root)
-        stats_window.title("Student Statistics Report")
-        stats_window.geometry("600x500")
-        stats_window.configure(bg='#f0f0f0')
-        
-        # Title
-        title_label = tk.Label(stats_window, text="Statistics Report", 
-                              font=('Arial', 16, 'bold'), bg='#2c3e50', fg='white')
-        title_label.pack(fill='x', pady=(0, 10))
-        
-        # Text widget with scrollbar
-        text_frame = tk.Frame(stats_window)
-        text_frame.pack(fill='both', expand=True, padx=10, pady=10)
-        
-        scrollbar = tk.Scrollbar(text_frame)
-        scrollbar.pack(side='right', fill='y')
-        
-        text_widget = tk.Text(text_frame, wrap='word', font=('Courier', 10),
-                            yscrollcommand=scrollbar.set, bg='#ffffff')
-        text_widget.pack(side='left', fill='both', expand=True)
-        scrollbar.config(command=text_widget.yview)
-        
-        # Insert statistics text
-        text_widget.insert('1.0', stats_text)
-        text_widget.config(state='disabled')
-        
-        # Close button
-        close_btn = tk.Button(stats_window, text="Close", command=stats_window.destroy,
-                            font=('Arial', 10, 'bold'), bg='#e74c3c', fg='white',
-                            width=15, cursor='hand2')
-        close_btn.pack(pady=10)
-    
-    def show_compile_instructions(self, compile_cmd):
-        """Show compilation instructions in a new window"""
-        inst_window = tk.Toplevel(self.root)
-        inst_window.title("Compilation Instructions")
-        inst_window.geometry("600x400")
-        inst_window.configure(bg='#f0f0f0')
-        
-        # Title
-        title_label = tk.Label(inst_window, text="How to Compile C++ Program", 
-                              font=('Arial', 14, 'bold'), bg='#2c3e50', fg='white')
-        title_label.pack(fill='x', pady=(0, 10))
-        
-        instructions = f"""
 
-
-{compile_cmd}
-
-
-        """
-        
-        text_widget = tk.Text(inst_window, wrap='word', font=('Arial', 10),
-                            bg='#ffffff', padx=10, pady=10)
-        text_widget.pack(fill='both', expand=True, padx=10, pady=10)
-        text_widget.insert('1.0', instructions.strip())
-        text_widget.config(state='disabled')
-        
-        # Close button
-        close_btn = tk.Button(inst_window, text="Close", command=inst_window.destroy,
-                            font=('Arial', 10, 'bold'), bg='#3498db', fg='white',
-                            width=15, cursor='hand2')
-        close_btn.pack(pady=10)
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = StudentRecordSystem(root)
     root.mainloop()
-      
-        
-      
-      
-                               
-        
-     
-    
