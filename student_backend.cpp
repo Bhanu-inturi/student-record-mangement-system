@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <sstream>
 #include <cmath>
+#include <stdexcept>
 
 using namespace std;
 
@@ -16,6 +17,9 @@ struct Student {
     int age;
     string grade;
     string major;
+    
+    // Constructor with default values
+    Student() : id(""), name(""), age(0), grade(""), major("") {}
 };
 
 // Function to trim whitespace
@@ -26,7 +30,7 @@ string trim(const string& str) {
     return str.substr(first, (last - first + 1));
 }
 
-// Parse JSON manually (simple implementation)
+// Parse JSON manually (improved implementation)
 vector<Student> parseJSON(const string& filename) {
     vector<Student> students;
     ifstream file(filename);
@@ -72,7 +76,15 @@ vector<Student> parseJSON(const string& filename) {
                     current.name = value;
                 }
                 else if (key == "\"age\"") {
-                    current.age = stoi(value);
+                    try {
+                        current.age = stoi(value);
+                    } catch (const invalid_argument& e) {
+                        cerr << "Warning: Invalid age value '" << value << "' for student. Using 0." << endl;
+                        current.age = 0;
+                    } catch (const out_of_range& e) {
+                        cerr << "Warning: Age value '" << value << "' out of range. Using 0." << endl;
+                        current.age = 0;
+                    }
                 }
                 else if (key == "\"grade\"") {
                     current.grade = value;
@@ -133,7 +145,7 @@ map<string, int> countByGrade(const vector<Student>& students) {
 // Find youngest and oldest students
 pair<Student, Student> findAgeExtremes(const vector<Student>& students) {
     if (students.empty()) {
-        return {Student(), Student()};
+        return make_pair(Student(), Student());
     }
     
     Student youngest = students[0];
@@ -144,7 +156,7 @@ pair<Student, Student> findAgeExtremes(const vector<Student>& students) {
         if (student.age > oldest.age) oldest = student;
     }
     
-    return {youngest, oldest};
+    return make_pair(youngest, oldest);
 }
 
 // Sort students by age (for output)
@@ -178,16 +190,21 @@ void displayStatistics(const vector<Student>& students) {
     cout << "  Average Age: " << fixed << setprecision(2) << avgAge << " years" << endl;
     cout << "  Standard Deviation: " << fixed << setprecision(2) << stdDev << endl;
     
-    auto [youngest, oldest] = findAgeExtremes(students);
-    cout << "  Youngest: " << trim(youngest.name) << " (Age: " << youngest.age << ")" << endl;
-    cout << "  Oldest: " << trim(oldest.name) << " (Age: " << oldest.age << ")" << endl << endl;
+    pair<Student, Student> extremes = findAgeExtremes(students);
+    Student youngest = extremes.first;
+    Student oldest = extremes.second;
+    
+    if (!students.empty()) {
+        cout << "  Youngest: " << trim(youngest.name) << " (Age: " << youngest.age << ")" << endl;
+        cout << "  Oldest: " << trim(oldest.name) << " (Age: " << oldest.age << ")" << endl << endl;
+    }
     
     // Distribution by Major
     map<string, int> majorCounts = countByMajor(students);
     cout << "DISTRIBUTION BY MAJOR:" << endl;
-    for (const auto& [major, count] : majorCounts) {
-        double percentage = (static_cast<double>(count) / students.size()) * 100;
-        cout << "  " << major << ": " << count << " (" 
+    for (const auto& pair : majorCounts) {
+        double percentage = (static_cast<double>(pair.second) / students.size()) * 100;
+        cout << "  " << pair.first << ": " << pair.second << " (" 
              << fixed << setprecision(1) << percentage << "%)" << endl;
     }
     cout << endl;
@@ -195,9 +212,9 @@ void displayStatistics(const vector<Student>& students) {
     // Distribution by Grade
     map<string, int> gradeCounts = countByGrade(students);
     cout << "DISTRIBUTION BY GRADE:" << endl;
-    for (const auto& [grade, count] : gradeCounts) {
-        double percentage = (static_cast<double>(count) / students.size()) * 100;
-        cout << "  " << grade << ": " << count << " (" 
+    for (const auto& pair : gradeCounts) {
+        double percentage = (static_cast<double>(pair.second) / students.size()) * 100;
+        cout << "  " << pair.first << ": " << pair.second << " (" 
              << fixed << setprecision(1) << percentage << "%)" << endl;
     }
     cout << endl;
