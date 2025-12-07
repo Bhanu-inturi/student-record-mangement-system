@@ -192,19 +192,34 @@ class StudentRecordSystem:
             messagebox.showwarning("Warning", "Please select a student to delete!")
             return
         
-        if messagebox.askyesno("Confirm", "Are you sure you want to delete this student?"):
-            item = self.tree.item(selected[0])
-            student_id = item['values'][0]
-            
-            self.students = [s for s in self.students if s['id'] != student_id]
+        # Get the student ID from the selected row
+        item = self.tree.item(selected[0])
+        student_id = str(item['values'][0])  # Convert to string for comparison
+        
+        # Confirm deletion
+        if not messagebox.askyesno("Confirm", "Are you sure you want to delete this student?"):
+            return
+        
+        # Find and remove the student
+        initial_count = len(self.students)
+        self.students = [s for s in self.students if str(s['id']) != student_id]
+        
+        # Check if deletion was successful
+        if len(self.students) < initial_count:
             self.save_data()
-            self.display_students()
-            self.clear_fields()
+            self.tree.delete(selected[0])  # Remove from tree immediately
+            self.clear_fields()  # Clear the input fields
+            self.display_students()  # Refresh the entire display
             messagebox.showinfo("Success", "Student deleted successfully!")
+        else:
+            messagebox.showerror("Error", "Failed to delete student!")
     
     def clear_fields(self):
         for entry in self.entries.values():
             entry.delete(0, tk.END)
+        # Also clear any selection in the tree
+        for item in self.tree.selection():
+            self.tree.selection_remove(item)
     
     def on_tree_select(self, event):
         selected = self.tree.selection()
@@ -224,12 +239,23 @@ class StudentRecordSystem:
             self.entries['major'].insert(0, values[4])
     
     def display_students(self):
-        self.tree.delete(*self.tree.get_children())
-        for student in self.students:
-            self.tree.insert('', 'end', values=(
-                student['id'], student['name'], student['age'], 
-                student['grade'], student['major']
-            ))
+        # Clear search box when displaying all students
+        if hasattr(self, 'search_entry'):
+            current_search = self.search_entry.get()
+            if not current_search:  # Only refresh if not searching
+                self.tree.delete(*self.tree.get_children())
+                for student in self.students:
+                    self.tree.insert('', 'end', values=(
+                        student['id'], student['name'], student['age'], 
+                        student['grade'], student['major']
+                    ))
+        else:
+            self.tree.delete(*self.tree.get_children())
+            for student in self.students:
+                self.tree.insert('', 'end', values=(
+                    student['id'], student['name'], student['age'], 
+                    student['grade'], student['major']
+                ))
     
     def search_students(self, event=None):
         query = self.search_entry.get().lower()
@@ -243,14 +269,19 @@ class StudentRecordSystem:
                 ))
     
     def save_data(self):
-        with open('students.json', 'w') as f:
-            json.dump(self.students, f, indent=2)
+        try:
+            with open('students.json', 'w') as f:
+                json.dump(self.students, f, indent=2)
+            print(f"Data saved: {len(self.students)} students")  # Debug output
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save data: {str(e)}")
     
     def load_data(self):
         if os.path.exists('students.json'):
             try:
                 with open('students.json', 'r') as f:
                     self.students = json.load(f)
+                print(f"Data loaded: {len(self.students)} students")  # Debug output
             except json.JSONDecodeError:
                 self.students = []
                 messagebox.showwarning("Warning", "Could not load students.json. Starting with empty database.")
@@ -259,7 +290,6 @@ class StudentRecordSystem:
                 messagebox.showerror("Error", f"Error loading data: {str(e)}")
         else:
             self.students = []
-    
 
 
 if __name__ == "__main__":
