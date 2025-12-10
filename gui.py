@@ -1,9 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 import json
 import os
-import subprocess
-import platform
 
 class StudentRecordSystem:
     def _init_(self, root):
@@ -59,8 +57,7 @@ class StudentRecordSystem:
             ("Add Student", self.add_student, '#27ae60'),
             ("Update Student", self.update_student, '#3498db'),
             ("Delete Student", self.delete_student, '#e74c3c'),
-            ("Clear Fields", self.clear_fields, '#95a5a6'),
-            ("Calculate Stats (C++)", self.calculate_stats, '#9b59b6')
+            ("Clear Fields", self.clear_fields, '#95a5a6')
         ]
         
         for i, (text, command, color) in enumerate(buttons):
@@ -138,9 +135,12 @@ class StudentRecordSystem:
             return
         
         try:
-            int(student['age'])
+            age_val = int(student['age'])
+            if age_val < 0 or age_val > 150:
+                messagebox.showerror("Error", "Age must be between 0 and 150!")
+                return
         except ValueError:
-            messagebox.showerror("Error", "Age must be a number!")
+            messagebox.showerror("Error", "Age must be a valid number!")
             return
         
         self.students.append(student)
@@ -160,10 +160,21 @@ class StudentRecordSystem:
             messagebox.showwarning("Warning", "Student ID is required!")
             return
         
+        # Validate age
+        age_str = self.entries['age'].get().strip()
+        try:
+            age_val = int(age_str)
+            if age_val < 0 or age_val > 150:
+                messagebox.showerror("Error", "Age must be between 0 and 150!")
+                return
+        except ValueError:
+            messagebox.showerror("Error", "Age must be a valid number!")
+            return
+        
         for student in self.students:
             if student['id'] == student_id:
                 student['name'] = self.entries['name'].get().strip()
-                student['age'] = self.entries['age'].get().strip()
+                student['age'] = age_str
                 student['grade'] = self.entries['grade'].get().strip()
                 student['major'] = self.entries['major'].get().strip()
                 
@@ -181,19 +192,34 @@ class StudentRecordSystem:
             messagebox.showwarning("Warning", "Please select a student to delete!")
             return
         
-        if messagebox.askyesno("Confirm", "Are you sure you want to delete this student?"):
-            item = self.tree.item(selected[0])
-            student_id = item['values'][0]
-            
-            self.students = [s for s in self.students if s['id'] != student_id]
+        # Get the student ID from the selected row
+        item = self.tree.item(selected[0])
+        student_id = str(item['values'][0])  # Convert to string for comparison
+        
+        # Confirm deletion
+        if not messagebox.askyesno("Confirm", "Are you sure you want to delete this student?"):
+            return
+        
+        # Find and remove the student
+        initial_count = len(self.students)
+        self.students = [s for s in self.students if str(s['id']) != student_id]
+        
+        # Check if deletion was successful
+        if len(self.students) < initial_count:
             self.save_data()
-            self.display_students()
-            self.clear_fields()
+            self.tree.delete(selected[0])  # Remove from tree immediately
+            self.clear_fields()  # Clear the input fields
+            self.display_students()  # Refresh the entire display
             messagebox.showinfo("Success", "Student deleted successfully!")
+        else:
+            messagebox.showerror("Error", "Failed to delete student!")
     
     def clear_fields(self):
         for entry in self.entries.values():
             entry.delete(0, tk.END)
+        # Also clear any selection in the tree
+        for item in self.tree.selection():
+            self.tree.selection_remove(item)
     
     def on_tree_select(self, event):
         selected = self.tree.selection()
@@ -213,12 +239,23 @@ class StudentRecordSystem:
             self.entries['major'].insert(0, values[4])
     
     def display_students(self):
-        self.tree.delete(*self.tree.get_children())
-        for student in self.students:
-            self.tree.insert('', 'end', values=(
-                student['id'], student['name'], student['age'], 
-                student['grade'], student['major']
-            ))
+        # Clear search box when displaying all students
+        if hasattr(self, 'search_entry'):
+            current_search = self.search_entry.get()
+            if not current_search:  # Only refresh if not searching
+                self.tree.delete(*self.tree.get_children())
+                for student in self.students:
+                    self.tree.insert('', 'end', values=(
+                        student['id'], student['name'], student['age'], 
+                        student['grade'], student['major']
+                    ))
+        else:
+            self.tree.delete(*self.tree.get_children())
+            for student in self.students:
+                self.tree.insert('', 'end', values=(
+                    student['id'], student['name'], student['age'], 
+                    student['grade'], student['major']
+                ))
     
     def search_students(self, event=None):
         query = self.search_entry.get().lower()
@@ -232,46 +269,28 @@ class StudentRecordSystem:
                 ))
     
     def save_data(self):
-        with open('students.json', 'w') as f:
-            json.dump(self.students, f, indent=2)
+        try:
+            with open('students.json', 'w') as f:
+                json.dump(self.students, f, indent=2)
+            print(f"Data saved: {len(self.students)} students")  # Debug output
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save data: {str(e)}")
     
     def load_data(self):
         if os.path.exists('students.json'):
             try:
                 with open('students.json', 'r') as f:
                     self.students = json.load(f)
-            except:
+                print(f"Data loaded: {len(self.students)} students")  # Debug output
+            except json.JSONDecodeError:
                 self.students = []
-    
-    def calculate_stats(self):
-        if not self.students:
-            messagebox.showwarning("Warning", "No students to analyze!")
-            return
-        
-        # Save data for C++ program
-        self.save_data()
-        
-        # Check if C++ executable exists
-        cpp_exe = 'student_stats.exe' if platform.system() == 'Windows' else './student_stats'
-        
-        if not os.path.exists(cpp_exe):
-            messagebox.showerror("Error", 
-                f"C++ program not found!\n\n"
-                f"Please compile the C++ code first:\n"
-                f"Windows: g++ student_stats.cpp -o student_stats.exe\n"
-                f"Linux/Mac: g++ student_stats.cpp -o student_stats")
-            return
-        
-        try:
-            result = subprocess.run([cpp_exe], capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                messagebox.showinfo("Statistics", result.stdout)
-            else:
-                messagebox.showerror("Error", f"C++ Error: {result.stderr}")
-        except FileNotFoundError:
-            messagebox.showerror("Error", "C++ program not found!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error running C++ program: {str(e)}")
+                messagebox.showwarning("Warning", "Could not load students.json. Starting with empty database.")
+            except Exception as e:
+                self.students = []
+                messagebox.showerror("Error", f"Error loading data: {str(e)}")
+        else:
+            self.students = []
+
 
 if _name_ == "_main_":
     root = tk.Tk()
